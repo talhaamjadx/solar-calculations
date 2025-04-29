@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solar Net Energy Calculator</title>
+    <style>
+      :root {
+        --primary-color: #4caf50;
+        --primary-hover: #45a049;
+        --secondary-color: #3498db;
+        --background-light: #f9f9f9;
+        --background-dark: #2c3e50;
+        --text-light: #ffffff;
+        --text-dark: #333333;
+        --border-radius: 8px;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        min-height: 100vh;
+        color: var(--text-dark);
+        line-height: 1.6;
+      }
+
+      .container {
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: var(--border-radius);
+        padding: 30px;
+        box-shadow: var(--box-shadow);
+        margin-bottom: 30px;
+      }
+
+      h2 {
+        color: var(--background-dark);
+        text-align: center;
+        margin-bottom: 25px;
+        font-size: 28px;
+        border-bottom: 2px solid var(--primary-color);
+        padding-bottom: 10px;
+      }
+
+      h3 {
+        color: var(--background-dark);
+        margin-top: 25px;
+        font-size: 20px;
+        border-left: 4px solid var(--primary-color);
+        padding-left: 10px;
+      }
+
+      label {
+        display: block;
+        margin-top: 15px;
+        font-weight: 600;
+        color: var(--background-dark);
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 10px;
+        margin-top: 6px;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius);
+        font-size: 14px;
+        transition: border 0.3s;
+      }
+
+      input:focus,
+      select:focus {
+        border-color: var(--primary-color);
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+      }
+
+      button {
+        margin-top: 20px;
+        padding: 12px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-weight: bold;
+        transition: background-color 0.3s, transform 0.2s;
+        font-size: 16px;
+      }
+
+      button:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-2px);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      .param-group {
+        margin-bottom: 15px;
+        background-color: var(--background-light);
+        padding: 15px;
+        border-radius: var(--border-radius);
+      }
+
+      #result {
+        margin-top: 30px;
+        font-size: 1.2em;
+        background-color: white;
+        padding: 20px;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+      }
+
+      .url-input {
+        width: 100%;
+      }
+
+      .status {
+        color: var(--secondary-color);
+        font-style: italic;
+        margin-top: 8px;
+        font-weight: 500;
+      }
+
+      .url-display {
+        margin-top: 12px;
+        padding: 12px;
+        background-color: #f0f4f8;
+        border-radius: var(--border-radius);
+        font-family: monospace;
+        font-size: 12px;
+        word-break: break-all;
+        display: none;
+        border-left: 3px solid var(--secondary-color);
+      }
+
+      .solar-icon {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 40px;
+      }
+
+      .api-section {
+        margin-top: 40px;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 10px;
+        }
+        .container {
+          padding: 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="solar-icon">☀️</div>
+      <h2>Solar Net Energy Calculator</h2>
+
+      <div class="api-section">
+        <label for="consumptionUrlInput">Paste Consumption API URL:</label>
+        <input
+          type="text"
+          id="consumptionUrlInput"
+          class="url-input"
+          placeholder="Paste Consumption API URL here..."
+        />
+
+        <button onclick="extractParams('consumption')">
+          <span>📥 Extract Consumption Params</span>
+        </button>
+        <div id="consumptionStatus" class="status"></div>
+        <div id="consumptionUrlDisplay" class="url-display"></div>
+
+        <h3>Consumption API Parameters</h3>
+        <form id="consumptionParamsForm" style="margin-top: 20px"></form>
+      </div>
+
+      <div class="api-section">
+        <label for="generationUrlInput">Paste Generation API URL:</label>
+        <input
+          type="text"
+          id="generationUrlInput"
+          class="url-input"
+          placeholder="Paste Generation API URL here..."
+        />
+
+        <button onclick="extractParams('generation')">
+          <span>📥 Extract Generation Params</span>
+        </button>
+        <div id="generationStatus" class="status"></div>
+        <div id="generationUrlDisplay" class="url-display"></div>
+
+        <h3>Generation API Parameters</h3>
+        <form id="generationParamsForm" style="margin-top: 20px"></form>
+      </div>
+
+      <button
+        onclick="calculateEnergy()"
+        style="width: 100%; margin-top: 30px; background-color: #3498db"
+      >
+        <span>⚡ Calculate Net Energy</span>
+      </button>
+
+      <button
+        onclick="clearSavedData()"
+        style="
+          width: 100%;
+          margin-top: 20px;
+          background-color: #e74c3c;
+          color: white;
+        "
+      >
+        <span>🗑️ Clear Saved Data</span>
+      </button>
+
+      <div id="result">
+        <h3>Results will appear here</h3>
+      </div>
+    </div>
+    <!-- Close container -->
+
+    <script>
+      const baseUrl = "https://web.dessmonitor.com/public/";
+
+      // Store ALL original parameters from the URLs
+      let originalConsumptionParams = {};
+      let originalGenerationParams = {};
+
+      // Store editable parameters separately
+      let consumptionParams = {};
+      let generationParams = {};
+
+      const todayStr = new Date().toISOString().split("T")[0]; // Default date to today's date
+
+      // Load saved URLs from localStorage on page load
+      document.addEventListener("DOMContentLoaded", function () {
+        const savedConsumptionUrl = localStorage.getItem("consumptionUrl");
+        const savedGenerationUrl = localStorage.getItem("generationUrl");
+
+        if (savedConsumptionUrl) {
+          document.getElementById("consumptionUrlInput").value =
+            savedConsumptionUrl;
+          extractParams("consumption");
+        }
+
+        if (savedGenerationUrl) {
+          document.getElementById("generationUrlInput").value =
+            savedGenerationUrl;
+          extractParams("generation");
+        }
+      });
+
+      // Function to build the form dynamically
+      function buildForm(formId, params) {
+        const form = document.getElementById(formId);
+        form.innerHTML = ""; // Clear previous form
+
+        // Only the following params are configurable in the UI
+        const fields = ["pn", "sn", "date", "token"];
+
+        fields.forEach((field) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "param-group";
+
+          const label = document.createElement("label");
+          label.textContent = field;
+
+          const input = document.createElement("input");
+          input.name = field;
+          input.value = params[field] || (field === "date" ? todayStr : "");
+
+          if (field === "date") {
+            input.type = "date";
+          } else {
+            input.type = "text";
+          }
+
+          wrapper.appendChild(label);
+          wrapper.appendChild(input);
+          form.appendChild(wrapper);
+        });
+      }
+
+      // Function to extract query params from the pasted URL and fill the forms
+      function extractParams(type) {
+        const urlInputId =
+          type === "consumption" ? "consumptionUrlInput" : "generationUrlInput";
+        const statusId =
+          type === "consumption" ? "consumptionStatus" : "generationStatus";
+        const urlDisplayId =
+          type === "consumption"
+            ? "consumptionUrlDisplay"
+            : "generationUrlDisplay";
+
+        const url = document.getElementById(urlInputId).value;
+
+        if (!url) {
+          document.getElementById(statusId).textContent =
+            "Please paste a URL first";
+          return;
+        }
+
+        try {
+          const parsedUrl = new URL(url);
+          const params = new URLSearchParams(parsedUrl.search);
+
+          // Store all original parameters
+          const allParams = {};
+          for (const [key, value] of params.entries()) {
+            allParams[key] = value;
+          }
+
+          // Store in the appropriate original params object
+          if (type === "consumption") {
+            originalConsumptionParams = { ...allParams };
+            // Save to localStorage
+            localStorage.setItem("consumptionUrl", url);
+          } else {
+            originalGenerationParams = { ...allParams };
+            // Save to localStorage
+            localStorage.setItem("generationUrl", url);
+          }
+
+          // Extract editable params for the form
+          const editableParams = {};
+          const editableFields = ["sn", "pn", "date", "token"];
+
+          editableFields.forEach((field) => {
+            if (params.has(field)) {
+              editableParams[field] = params.get(field);
+            }
+          });
+
+          // Update the editable params
+          if (type === "consumption") {
+            consumptionParams = editableParams;
+          } else {
+            generationParams = editableParams;
+          }
+
+          // Build forms with the editable params
+          buildForm(
+            type === "consumption"
+              ? "consumptionParamsForm"
+              : "generationParamsForm",
+            editableParams
+          );
+
+          // Display success message
+          document.getElementById(statusId).textContent =
+            "Parameters extracted successfully";
+
+          // Display the original URL for reference
+          const urlDisplay = document.getElementById(urlDisplayId);
+          urlDisplay.textContent = url;
+          urlDisplay.style.display = "block";
+        } catch (err) {
+          console.error(err);
+          document.getElementById(statusId).textContent = "Invalid URL format";
+        }
+      }
+
+      // Function to clear saved data
+      function clearSavedData() {
+        localStorage.removeItem("consumptionUrl");
+        localStorage.removeItem("generationUrl");
+
+        // Clear input fields
+        document.getElementById("consumptionUrlInput").value = "";
+        document.getElementById("generationUrlInput").value = "";
+
+        // Clear forms
+        document.getElementById("consumptionParamsForm").innerHTML = "";
+        document.getElementById("generationParamsForm").innerHTML = "";
+
+        // Reset params objects
+        originalConsumptionParams = {};
+        originalGenerationParams = {};
+        consumptionParams = {};
+        generationParams = {};
+
+        // Update status messages
+        document.getElementById("consumptionStatus").textContent =
+          "Saved data cleared";
+        document.getElementById("generationStatus").textContent =
+          "Saved data cleared";
+
+        // Hide URL displays
+        document.getElementById("consumptionUrlDisplay").style.display = "none";
+        document.getElementById("generationUrlDisplay").style.display = "none";
+      }
+
+      // Function to extract the parameters and perform the calculation
+      async function fetchEnergyWithParameter(
+        originalParams,
+        formParams,
+        parameter
+      ) {
+        // Create a new params object combining original and updated form params
+        const newParams = new URLSearchParams();
+
+        // First add all original params
+        for (const [key, value] of Object.entries(originalParams)) {
+          newParams.set(key, value);
+        }
+
+        // Then override with form params (the ones the user might have edited)
+        for (const [key, value] of Object.entries(formParams)) {
+          newParams.set(key, value);
+        }
+
+        // Make sure parameter and action are set correctly
+        newParams.set("parameter", parameter);
+        newParams.set("action", "querySPDeviceKeyParameterOneDay");
+
+        const fullUrl = baseUrl + "?" + newParams.toString();
+        console.log("Fetching data from:", fullUrl);
+
+        const res = await fetch(fullUrl);
+        const data = await res.json();
+
+        if (data.err !== 0 || !data.dat?.detail?.length) {
+          throw new Error(`No data for ${parameter}: ${JSON.stringify(data)}`);
+        }
+
+        // Sort the readings by timestamp to ensure proper energy calculation
+        const readings = data.dat.detail.sort((a, b) => {
+          const timeA = new Date(a.ts).getTime();
+          const timeB = new Date(b.ts).getTime();
+          return timeA - timeB;
+        });
+
+        console.log(`Sorted ${readings.length} readings for ${parameter}`);
+        let totalEnergy = 0;
+
+        for (let i = 0; i < readings.length - 1; i++) {
+          const powerKW = parseFloat(readings[i].val) || 0; // Handle null or non-numeric values
+          const time1 = new Date(readings[i].ts);
+          const time2 = new Date(readings[i + 1].ts);
+          const deltaHrs = (time2 - time1) / (1000 * 60 * 60);
+
+          // Skip invalid time differences (negative or unreasonably large)
+          if (deltaHrs <= 0 || deltaHrs > 1) {
+            console.warn(
+              `Skipping unusual time difference: ${deltaHrs} hours between ${time1} and ${time2}`
+            );
+            continue;
+          }
+
+          totalEnergy += powerKW * deltaHrs;
+        }
+
+        return totalEnergy;
+      }
+
+      // Function to extract the params from the form
+      function extractParamsFromForm(formId) {
+        const form = document.getElementById(formId);
+        const inputs = form.querySelectorAll("input");
+
+        const updatedParams = {};
+
+        inputs.forEach((el) => (updatedParams[el.name] = el.value));
+
+        return updatedParams;
+      }
+
+      // Function to perform the calculation
+      async function calculateEnergy() {
+        const resultDiv = document.getElementById("result");
+        resultDiv.innerHTML = `
+          <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 24px; margin-bottom: 10px;">⏳ Calculating...</div>
+            <div>Fetching and processing energy data</div>
+          </div>
+        `;
+
+        try {
+          // Extract the parameters for consumption and generation
+          const consumptionFormParams = extractParamsFromForm(
+            "consumptionParamsForm"
+          );
+          const generationFormParams = extractParamsFromForm(
+            "generationParamsForm"
+          );
+
+          // Check if URLs have been parsed
+          if (
+            Object.keys(originalConsumptionParams).length === 0 ||
+            Object.keys(originalGenerationParams).length === 0
+          ) {
+            resultDiv.innerHTML = `
+              <div style="text-align: center; padding: 20px; color: #e74c3c;">
+                <div style="font-size: 24px; margin-bottom: 10px;">⚠️ Missing Data</div>
+                <div>Please paste and extract both URLs first</div>
+              </div>
+            `;
+            return;
+          }
+
+          // Fetch data for both consumption and generation
+          const consumption = await fetchEnergyWithParameter(
+            originalConsumptionParams,
+            consumptionFormParams,
+            "LOAD_ACTIVE_POWER"
+          );
+
+          const generation = await fetchEnergyWithParameter(
+            originalGenerationParams,
+            generationFormParams,
+            "PV_OUTPUT_POWER"
+          );
+
+          const net = generation - consumption;
+
+          // Calculate percentage for visual representation
+          const totalEnergy = Math.abs(consumption) + Math.abs(generation);
+          const consumptionPercent = (consumption / totalEnergy) * 100;
+          const generationPercent = (generation / totalEnergy) * 100;
+
+          // Display the results with color coding for positive/negative values
+          const netColor = net >= 0 ? "#27ae60" : "#e74c3c";
+          const netIcon = net >= 0 ? "✅" : "⚠️";
+          const netStatus = net >= 0 ? "Net Positive" : "Net Negative";
+
+          resultDiv.innerHTML = `
+            <h3>Energy Summary for ${consumptionFormParams.date}</h3>
+            
+            <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Energy Consumed:</div>
+                <div>${consumption.toFixed(2)} kWh</div>
+              </div>
+              
+              <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
+                <div style="width: ${consumptionPercent}%; height: 100%; background-color: #e74c3c;"></div>
+              </div>
+              
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Energy Generated:</div>
+                <div>${generation.toFixed(2)} kWh</div>
+              </div>
+              
+              <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
+                <div style="width: ${generationPercent}%; height: 100%; background-color: #27ae60;"></div>
+              </div>
+              
+              <div style="background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div style="font-size: 1.2em; font-weight: bold;">Net Energy:</div>
+                  <div style="font-size: 1.2em; font-weight: bold; color: ${netColor};">${net.toFixed(
+            2
+          )} kWh</div>
+                </div>
+                
+                <div style="display: flex; align-items: center; margin-top: 10px; justify-content: flex-end; color: ${netColor};">
+                  <span style="font-size: 16px; margin-right: 5px;">${netIcon}</span>
+                  <span style="font-weight: bold;">${netStatus}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        } catch (err) {
+          console.error(err);
+          resultDiv.innerHTML = `
+            <h3>Error</h3>
+            <p>Error during fetch or calculation: ${err.message}</p>
+            <p>Please check the console for more details.</p>
+          `;
+        }
+      }
+    </script>
+  </body>
+</html>
