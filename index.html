@@ -116,37 +116,10 @@
         box-shadow: var(--box-shadow);
       }
 
-      .url-input {
-        width: 100%;
-      }
-
-      .status {
-        color: var(--secondary-color);
-        font-style: italic;
-        margin-top: 8px;
-        font-weight: 500;
-      }
-
-      .url-display {
-        margin-top: 12px;
-        padding: 12px;
-        background-color: #f0f4f8;
-        border-radius: var(--border-radius);
-        font-family: monospace;
-        font-size: 12px;
-        word-break: break-all;
-        display: none;
-        border-left: 3px solid var(--secondary-color);
-      }
-
       .solar-icon {
         text-align: center;
         margin-bottom: 20px;
         font-size: 40px;
-      }
-
-      .api-section {
-        margin-top: 40px;
       }
 
       @media (max-width: 600px) {
@@ -164,61 +137,14 @@
       <div class="solar-icon">☀️</div>
       <h2>Solar Net Energy Calculator</h2>
 
-      <div class="api-section">
-        <label for="consumptionUrlInput">Paste Consumption API URL:</label>
-        <input
-          type="text"
-          id="consumptionUrlInput"
-          class="url-input"
-          placeholder="Paste Consumption API URL here..."
-        />
-
-        <button onclick="extractParams('consumption')">
-          <span>📥 Extract Consumption Params</span>
-        </button>
-        <div id="consumptionStatus" class="status"></div>
-        <div id="consumptionUrlDisplay" class="url-display"></div>
-
-        <h3>Consumption API Parameters</h3>
-        <form id="consumptionParamsForm" style="margin-top: 20px"></form>
-      </div>
-
-      <div class="api-section">
-        <label for="generationUrlInput">Paste Generation API URL:</label>
-        <input
-          type="text"
-          id="generationUrlInput"
-          class="url-input"
-          placeholder="Paste Generation API URL here..."
-        />
-
-        <button onclick="extractParams('generation')">
-          <span>📥 Extract Generation Params</span>
-        </button>
-        <div id="generationStatus" class="status"></div>
-        <div id="generationUrlDisplay" class="url-display"></div>
-
-        <h3>Generation API Parameters</h3>
-        <form id="generationParamsForm" style="margin-top: 20px"></form>
-      </div>
+      <h3>Select Date</h3>
+      <form id="dateParamsForm" style="margin-top: 20px"></form>
 
       <button
         onclick="calculateEnergy()"
         style="width: 100%; margin-top: 30px; background-color: #3498db"
       >
         <span>⚡ Calculate Net Energy</span>
-      </button>
-
-      <button
-        onclick="clearSavedData()"
-        style="
-          width: 100%;
-          margin-top: 20px;
-          background-color: #e74c3c;
-          color: white;
-        "
-      >
-        <span>🗑️ Clear Saved Data</span>
       </button>
 
       <div id="result">
@@ -228,252 +154,30 @@
     <!-- Close container -->
 
     <script>
-      const baseUrl = "https://web.dessmonitor.com/public/";
-
-      // Store ALL original parameters from the URLs
-      let originalConsumptionParams = {};
-      let originalGenerationParams = {};
-
-      // Store editable parameters separately
-      let consumptionParams = {};
-      let generationParams = {};
-
       const todayStr = new Date().toISOString().split("T")[0]; // Default date to today's date
 
-      // Load saved URLs from localStorage on page load
+      // Only keep date input for user to select the date
+      function buildDateForm(formId) {
+        const form = document.getElementById(formId);
+        form.innerHTML = "";
+        const wrapper = document.createElement("div");
+        wrapper.className = "param-group";
+        const label = document.createElement("label");
+        label.textContent = "date";
+        const input = document.createElement("input");
+        input.name = "date";
+        input.type = "date";
+        input.value = todayStr;
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        form.appendChild(wrapper);
+      }
+
+      // On page load, just build the date form
       document.addEventListener("DOMContentLoaded", function () {
-        const savedConsumptionUrl = localStorage.getItem("consumptionUrl");
-        const savedGenerationUrl = localStorage.getItem("generationUrl");
-
-        if (savedConsumptionUrl) {
-          document.getElementById("consumptionUrlInput").value =
-            savedConsumptionUrl;
-          extractParams("consumption");
-        }
-
-        if (savedGenerationUrl) {
-          document.getElementById("generationUrlInput").value =
-            savedGenerationUrl;
-          extractParams("generation");
-        }
+        buildDateForm("dateParamsForm");
       });
 
-      // Function to build the form dynamically
-      function buildForm(formId, params) {
-        const form = document.getElementById(formId);
-        form.innerHTML = ""; // Clear previous form
-
-        // Only the following params are configurable in the UI
-        const fields = ["pn", "sn", "date", "token"];
-
-        fields.forEach((field) => {
-          const wrapper = document.createElement("div");
-          wrapper.className = "param-group";
-
-          const label = document.createElement("label");
-          label.textContent = field;
-
-          const input = document.createElement("input");
-          input.name = field;
-          input.value = params[field] || (field === "date" ? todayStr : "");
-
-          if (field === "date") {
-            input.type = "date";
-          } else {
-            input.type = "text";
-          }
-
-          wrapper.appendChild(label);
-          wrapper.appendChild(input);
-          form.appendChild(wrapper);
-        });
-      }
-
-      // Function to extract query params from the pasted URL and fill the forms
-      function extractParams(type) {
-        const urlInputId =
-          type === "consumption" ? "consumptionUrlInput" : "generationUrlInput";
-        const statusId =
-          type === "consumption" ? "consumptionStatus" : "generationStatus";
-        const urlDisplayId =
-          type === "consumption"
-            ? "consumptionUrlDisplay"
-            : "generationUrlDisplay";
-
-        const url = document.getElementById(urlInputId).value;
-
-        if (!url) {
-          document.getElementById(statusId).textContent =
-            "Please paste a URL first";
-          return;
-        }
-
-        try {
-          const parsedUrl = new URL(url);
-          const params = new URLSearchParams(parsedUrl.search);
-
-          // Store all original parameters
-          const allParams = {};
-          for (const [key, value] of params.entries()) {
-            allParams[key] = value;
-          }
-
-          // Store in the appropriate original params object
-          if (type === "consumption") {
-            originalConsumptionParams = { ...allParams };
-            // Save to localStorage
-            localStorage.setItem("consumptionUrl", url);
-          } else {
-            originalGenerationParams = { ...allParams };
-            // Save to localStorage
-            localStorage.setItem("generationUrl", url);
-          }
-
-          // Extract editable params for the form
-          const editableParams = {};
-          const editableFields = ["sn", "pn", "date", "token"];
-
-          editableFields.forEach((field) => {
-            if (params.has(field)) {
-              editableParams[field] = params.get(field);
-            }
-          });
-
-          // Update the editable params
-          if (type === "consumption") {
-            consumptionParams = editableParams;
-          } else {
-            generationParams = editableParams;
-          }
-
-          // Build forms with the editable params
-          buildForm(
-            type === "consumption"
-              ? "consumptionParamsForm"
-              : "generationParamsForm",
-            editableParams
-          );
-
-          // Display success message
-          document.getElementById(statusId).textContent =
-            "Parameters extracted successfully";
-
-          // Display the original URL for reference
-          const urlDisplay = document.getElementById(urlDisplayId);
-          urlDisplay.textContent = url;
-          urlDisplay.style.display = "block";
-        } catch (err) {
-          console.error(err);
-          document.getElementById(statusId).textContent = "Invalid URL format";
-        }
-      }
-
-      // Function to clear saved data
-      function clearSavedData() {
-        localStorage.removeItem("consumptionUrl");
-        localStorage.removeItem("generationUrl");
-
-        // Clear input fields
-        document.getElementById("consumptionUrlInput").value = "";
-        document.getElementById("generationUrlInput").value = "";
-
-        // Clear forms
-        document.getElementById("consumptionParamsForm").innerHTML = "";
-        document.getElementById("generationParamsForm").innerHTML = "";
-
-        // Reset params objects
-        originalConsumptionParams = {};
-        originalGenerationParams = {};
-        consumptionParams = {};
-        generationParams = {};
-
-        // Update status messages
-        document.getElementById("consumptionStatus").textContent =
-          "Saved data cleared";
-        document.getElementById("generationStatus").textContent =
-          "Saved data cleared";
-
-        // Hide URL displays
-        document.getElementById("consumptionUrlDisplay").style.display = "none";
-        document.getElementById("generationUrlDisplay").style.display = "none";
-      }
-
-      // Function to extract the parameters and perform the calculation
-      async function fetchEnergyWithParameter(
-        originalParams,
-        formParams,
-        parameter
-      ) {
-        // Create a new params object combining original and updated form params
-        const newParams = new URLSearchParams();
-
-        // First add all original params
-        for (const [key, value] of Object.entries(originalParams)) {
-          newParams.set(key, value);
-        }
-
-        // Then override with form params (the ones the user might have edited)
-        for (const [key, value] of Object.entries(formParams)) {
-          newParams.set(key, value);
-        }
-
-        // Make sure parameter and action are set correctly
-        newParams.set("parameter", parameter);
-        newParams.set("action", "querySPDeviceKeyParameterOneDay");
-
-        const fullUrl = baseUrl + "?" + newParams.toString();
-        console.log("Fetching data from:", fullUrl);
-
-        const res = await fetch(fullUrl);
-        const data = await res.json();
-
-        if (data.err !== 0 || !data.dat?.detail?.length) {
-          throw new Error(`No data for ${parameter}: ${JSON.stringify(data)}`);
-        }
-
-        // Sort the readings by timestamp to ensure proper energy calculation
-        const readings = data.dat.detail.sort((a, b) => {
-          const timeA = new Date(a.ts).getTime();
-          const timeB = new Date(b.ts).getTime();
-          return timeA - timeB;
-        });
-
-        console.log(`Sorted ${readings.length} readings for ${parameter}`);
-        let totalEnergy = 0;
-
-        for (let i = 0; i < readings.length - 1; i++) {
-          const powerKW = parseFloat(readings[i].val) || 0; // Handle null or non-numeric values
-          const time1 = new Date(readings[i].ts);
-          const time2 = new Date(readings[i + 1].ts);
-          const deltaHrs = (time2 - time1) / (1000 * 60 * 60);
-
-          // Skip invalid time differences (negative or unreasonably large)
-          if (deltaHrs <= 0 || deltaHrs > 1) {
-            console.warn(
-              `Skipping unusual time difference: ${deltaHrs} hours between ${time1} and ${time2}`
-            );
-            continue;
-          }
-
-          totalEnergy += powerKW * deltaHrs;
-        }
-
-        return totalEnergy;
-      }
-
-      // Function to extract the params from the form
-      function extractParamsFromForm(formId) {
-        const form = document.getElementById(formId);
-        const inputs = form.querySelectorAll("input");
-
-        const updatedParams = {};
-
-        inputs.forEach((el) => (updatedParams[el.name] = el.value));
-
-        return updatedParams;
-      }
-
-      // Function to perform the calculation
       async function calculateEnergy() {
         const resultDiv = document.getElementById("result");
         resultDiv.innerHTML = `
@@ -484,47 +188,67 @@
         `;
 
         try {
-          // Extract the parameters for consumption and generation
-          const consumptionFormParams = extractParamsFromForm(
-            "consumptionParamsForm"
+          // Get the date from the date form
+          let date = todayStr;
+          const dateInput = document.querySelector(
+            '#dateParamsForm input[name="date"]'
           );
-          const generationFormParams = extractParamsFromForm(
-            "generationParamsForm"
-          );
-
-          // Check if URLs have been parsed
-          if (
-            Object.keys(originalConsumptionParams).length === 0 ||
-            Object.keys(originalGenerationParams).length === 0
-          ) {
-            resultDiv.innerHTML = `
-              <div style="text-align: center; padding: 20px; color: #e74c3c;">
-                <div style="font-size: 24px; margin-bottom: 10px;">⚠️ Missing Data</div>
-                <div>Please paste and extract both URLs first</div>
-              </div>
-            `;
-            return;
+          if (dateInput && dateInput.value) {
+            date = dateInput.value;
           }
 
-          // Fetch data for both consumption and generation
-          const consumption = await fetchEnergyWithParameter(
-            originalConsumptionParams,
-            consumptionFormParams,
-            "LOAD_ACTIVE_POWER"
+          // Fetch data for both consumption and generation from the new API
+          const consumptionRes = await fetch(
+            `http://localhost:8001/stats?date=${date}&parameter=LOAD_ACTIVE_POWER`
           );
+          const consumptionData = await consumptionRes.json();
 
-          const generation = await fetchEnergyWithParameter(
-            originalGenerationParams,
-            generationFormParams,
-            "PV_OUTPUT_POWER"
+          const generationRes = await fetch(
+            `http://localhost:8001/stats?date=${date}&parameter=PV_OUTPUT_POWER`
           );
+          const generationData = await generationRes.json();
+
+          // Calculate energy from array of readings (if present)
+          function calculateEnergyFromArray(dataArr) {
+            if (!Array.isArray(dataArr) || dataArr.length < 2) return 0;
+            // Sort by timestamp
+            const readings = dataArr
+              .slice()
+              .sort((a, b) => new Date(a.ts) - new Date(b.ts));
+            let total = 0;
+            for (let i = 0; i < readings.length - 1; i++) {
+              const powerKW = parseFloat(readings[i].val) || 0;
+              const t1 = new Date(readings[i].ts);
+              const t2 = new Date(readings[i + 1].ts);
+              const deltaHrs = (t2 - t1) / (1000 * 60 * 60);
+              if (deltaHrs > 0 && deltaHrs < 1) {
+                total += powerKW * deltaHrs;
+              }
+            }
+            return total;
+          }
+
+          // Prefer .detail array for calculation
+          let consumption = 0;
+          if (Array.isArray(consumptionData.detail)) {
+            consumption = calculateEnergyFromArray(consumptionData.detail);
+          }
+
+          let generation = 0;
+          if (Array.isArray(generationData.detail)) {
+            generation = calculateEnergyFromArray(generationData.detail);
+          }
 
           const net = generation - consumption;
 
           // Calculate percentage for visual representation
           const totalEnergy = Math.abs(consumption) + Math.abs(generation);
-          const consumptionPercent = (consumption / totalEnergy) * 100;
-          const generationPercent = (generation / totalEnergy) * 100;
+          const consumptionPercent = totalEnergy
+            ? (consumption / totalEnergy) * 100
+            : 0;
+          const generationPercent = totalEnergy
+            ? (generation / totalEnergy) * 100
+            : 0;
 
           // Display the results with color coding for positive/negative values
           const netColor = net >= 0 ? "#27ae60" : "#e74c3c";
@@ -532,27 +256,22 @@
           const netStatus = net >= 0 ? "Net Positive" : "Net Negative";
 
           resultDiv.innerHTML = `
-            <h3>Energy Summary for ${consumptionFormParams.date}</h3>
-            
+            <h3>Energy Summary for ${date}</h3>
             <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-top: 20px;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <div style="font-weight: bold;">Energy Consumed:</div>
                 <div>${consumption.toFixed(2)} kWh</div>
               </div>
-              
               <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
                 <div style="width: ${consumptionPercent}%; height: 100%; background-color: #e74c3c;"></div>
               </div>
-              
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <div style="font-weight: bold;">Energy Generated:</div>
                 <div>${generation.toFixed(2)} kWh</div>
               </div>
-              
               <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
                 <div style="width: ${generationPercent}%; height: 100%; background-color: #27ae60;"></div>
               </div>
-              
               <div style="background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                 <div style="display: flex; align-items: center; justify-content: space-between;">
                   <div style="font-size: 1.2em; font-weight: bold;">Net Energy:</div>
@@ -560,7 +279,6 @@
             2
           )} kWh</div>
                 </div>
-                
                 <div style="display: flex; align-items: center; margin-top: 10px; justify-content: flex-end; color: ${netColor};">
                   <span style="font-size: 16px; margin-right: 5px;">${netIcon}</span>
                   <span style="font-weight: bold;">${netStatus}</span>
