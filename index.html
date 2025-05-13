@@ -199,12 +199,12 @@
 
           // Fetch data for both consumption and generation from the new API
           const consumptionRes = await fetch(
-            `http://localhost:8001/stats?date=${date}&parameter=LOAD_ACTIVE_POWER`
+            `https://smart-ess-api-gateway.onrender.com//stats?date=${date}&parameter=LOAD_ACTIVE_POWER`
           );
           const consumptionData = await consumptionRes.json();
 
           const generationRes = await fetch(
-            `http://localhost:8001/stats?date=${date}&parameter=PV_OUTPUT_POWER`
+            `https://smart-ess-api-gateway.onrender.com//stats?date=${date}&parameter=PV_OUTPUT_POWER`
           );
           const generationData = await generationRes.json();
 
