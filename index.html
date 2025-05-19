@@ -228,61 +228,154 @@
             return total;
           }
 
-          // Prefer .detail array for calculation
+          // Helper: interpolate value at a given timestamp from a sorted array
+          function interpolateValueAt(ts, arr) {
+            // arr must be sorted by ts ascending
+            for (let i = 0; i < arr.length - 1; i++) {
+              const t1 = new Date(arr[i].ts).getTime();
+              const t2 = new Date(arr[i + 1].ts).getTime();
+              const target = new Date(ts).getTime();
+              if (target >= t1 && target <= t2) {
+                const v1 = parseFloat(arr[i].val) || 0;
+                const v2 = parseFloat(arr[i + 1].val) || 0;
+                if (t2 === t1) return v1;
+                // Linear interpolation
+                return v1 + ((v2 - v1) * (target - t1)) / (t2 - t1);
+              }
+            }
+            // If before/after range, return closest
+            if (arr.length) {
+              if (new Date(ts) < new Date(arr[0].ts))
+                return parseFloat(arr[0].val) || 0;
+              if (new Date(ts) > new Date(arr[arr.length - 1].ts))
+                return parseFloat(arr[arr.length - 1].val) || 0;
+            }
+            return 0;
+          }
+
+          // Calculate overlap (self-consumed) energy
+          function calculateOverlapEnergy(loadArr, genArr) {
+            if (!Array.isArray(loadArr) || !Array.isArray(genArr)) return 0;
+            // Use the union of all timestamps for best accuracy
+            const allTimestamps = [
+              ...loadArr.map((r) => r.ts),
+              ...genArr.map((r) => r.ts),
+            ].sort();
+            // Remove duplicates
+            const uniqueTimestamps = [...new Set(allTimestamps)];
+            let total = 0;
+            for (let i = 0; i < uniqueTimestamps.length - 1; i++) {
+              const ts1 = uniqueTimestamps[i];
+              const ts2 = uniqueTimestamps[i + 1];
+              const t1 = new Date(ts1);
+              const t2 = new Date(ts2);
+              const deltaHrs = (t2 - t1) / (1000 * 60 * 60);
+              if (deltaHrs <= 0 || deltaHrs > 1) continue;
+              const loadKW = interpolateValueAt(ts1, loadArr);
+              const genKW = interpolateValueAt(ts1, genArr);
+              const overlapKW = Math.min(loadKW, genKW);
+              total += overlapKW * deltaHrs;
+            }
+            return total;
+          }
+
+          // Calculate grid draw during solar generation period
+          function calculateGridDrawDuringSolar(loadArr, genArr) {
+            if (
+              !Array.isArray(loadArr) ||
+              !Array.isArray(genArr) ||
+              genArr.length < 2
+            )
+              return 0;
+            // Find first index where generation > 0
+            let startIdx = genArr.findIndex((r) => parseFloat(r.val) > 0);
+            // Find last index where generation > 0
+            let endIdx = genArr.length - 1;
+            for (let i = genArr.length - 1; i >= 0; i--) {
+              if (parseFloat(genArr[i].val) > 0) {
+                endIdx = i;
+                break;
+              }
+            }
+            if (startIdx === -1 || endIdx <= startIdx) return 0;
+            const solarStart = new Date(genArr[startIdx].ts);
+            const solarEnd = new Date(genArr[endIdx].ts);
+            // Use the union of all timestamps for best accuracy, but only within solar period
+            const allTimestamps = [
+              ...loadArr.map((r) => r.ts),
+              ...genArr.map((r) => r.ts),
+            ]
+              .map((ts) => new Date(ts))
+              .filter((ts) => ts >= solarStart && ts <= solarEnd)
+              .sort((a, b) => a - b);
+            // Remove duplicates
+            const uniqueTimestamps = [
+              ...new Set(allTimestamps.map((ts) => ts.getTime())),
+            ].map((t) => new Date(t));
+            let total = 0;
+            for (let i = 0; i < uniqueTimestamps.length - 1; i++) {
+              const t1 = uniqueTimestamps[i];
+              const t2 = uniqueTimestamps[i + 1];
+              const deltaHrs = (t2 - t1) / (1000 * 60 * 60);
+              if (deltaHrs <= 0 || deltaHrs > 1) continue;
+              const loadKW = interpolateValueAt(t1, loadArr);
+              const genKW = interpolateValueAt(t1, genArr);
+              const gridDrawKW = Math.max(loadKW - genKW, 0);
+              total += gridDrawKW * deltaHrs;
+            }
+            return total;
+          }
+
           let consumption = 0;
-          if (Array.isArray(consumptionData.detail)) {
-            consumption = calculateEnergyFromArray(consumptionData.detail);
-          }
-
           let generation = 0;
-          if (Array.isArray(generationData.detail)) {
+          let overlap = 0;
+          let gridDrawDuringSolar = 0;
+          if (
+            Array.isArray(consumptionData.detail) &&
+            Array.isArray(generationData.detail)
+          ) {
+            consumption = calculateEnergyFromArray(consumptionData.detail);
             generation = calculateEnergyFromArray(generationData.detail);
+            overlap = calculateOverlapEnergy(
+              consumptionData.detail,
+              generationData.detail
+            );
+            gridDrawDuringSolar = calculateGridDrawDuringSolar(
+              consumptionData.detail,
+              generationData.detail
+            );
           }
 
-          const net = generation - consumption;
-
-          // Calculate percentage for visual representation
-          const totalEnergy = Math.abs(consumption) + Math.abs(generation);
-          const consumptionPercent = totalEnergy
-            ? (consumption / totalEnergy) * 100
-            : 0;
-          const generationPercent = totalEnergy
-            ? (generation / totalEnergy) * 100
-            : 0;
+          const netGridConsumption = consumption - overlap;
+          const curtailed = generation - overlap;
 
           // Display the results with color coding for positive/negative values
-          const netColor = net >= 0 ? "#27ae60" : "#e74c3c";
-          const netIcon = net >= 0 ? "✅" : "⚠️";
-          const netStatus = net >= 0 ? "Net Positive" : "Net Negative";
-
           resultDiv.innerHTML = `
             <h3>Energy Summary for ${date}</h3>
             <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-top: 20px;">
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <div style="font-weight: bold;">Energy Consumed:</div>
+                <div style="font-weight: bold;">Total Load (Consumed):</div>
                 <div>${consumption.toFixed(2)} kWh</div>
               </div>
-              <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
-                <div style="width: ${consumptionPercent}%; height: 100%; background-color: #e74c3c;"></div>
-              </div>
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <div style="font-weight: bold;">Energy Generated:</div>
+                <div style="font-weight: bold;">Total Generation:</div>
                 <div>${generation.toFixed(2)} kWh</div>
               </div>
-              <div style="height: 12px; background-color: #f1f1f1; border-radius: 6px; margin-bottom: 25px; overflow: hidden;">
-                <div style="width: ${generationPercent}%; height: 100%; background-color: #27ae60;"></div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Self-Consumed (Overlap):</div>
+                <div>${overlap.toFixed(2)} kWh</div>
               </div>
-              <div style="background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <div style="font-size: 1.2em; font-weight: bold;">Net Energy:</div>
-                  <div style="font-size: 1.2em; font-weight: bold; color: ${netColor};">${net.toFixed(
-            2
-          )} kWh</div>
-                </div>
-                <div style="display: flex; align-items: center; margin-top: 10px; justify-content: flex-end; color: ${netColor};">
-                  <span style="font-size: 16px; margin-right: 5px;">${netIcon}</span>
-                  <span style="font-weight: bold;">${netStatus}</span>
-                </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Net Grid Consumption:</div>
+                <div>${netGridConsumption.toFixed(2)} kWh</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Solar Energy Lost (Curtailed):</div>
+                <div>${curtailed.toFixed(2)} kWh</div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <div style="font-weight: bold;">Grid Draw During Solar Generation:</div>
+                <div>${gridDrawDuringSolar.toFixed(2)} kWh</div>
               </div>
             </div>
           `;
