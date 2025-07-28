@@ -347,7 +347,8 @@
           }
 
           const netGridConsumption = consumption - overlap;
-          const curtailed = generation - overlap;
+          const netGridExport = generation - overlap;
+          const netBalance = netGridExport - netGridConsumption;
 
           // Display the results with color coding for positive/negative values
           resultDiv.innerHTML = `
@@ -370,12 +371,32 @@
                 <div>${netGridConsumption.toFixed(2)} kWh</div>
               </div>
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                <div style="font-weight: bold;">Solar Energy Lost (Curtailed):</div>
-                <div>${curtailed.toFixed(2)} kWh</div>
+                <div style="font-weight: bold;">Net Grid Export:</div>
+                <div>${netGridExport.toFixed(2)} kWh</div>
               </div>
               <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <div style="font-weight: bold;">Grid Draw During Solar Generation:</div>
                 <div>${gridDrawDuringSolar.toFixed(2)} kWh</div>
+              </div>
+              <div style="background-color: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-top: 20px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div style="font-size: 1.2em; font-weight: bold;">Net Energy Balance:</div>
+                  <div style="font-size: 1.2em; font-weight: bold; color: ${
+                    netBalance >= 0 ? "#27ae60" : "#e74c3c"
+                  };">${netBalance.toFixed(2)} kWh</div>
+                </div>
+                <div style="display: flex; align-items: center; margin-top: 10px; justify-content: flex-end; color: ${
+                  netBalance >= 0 ? "#27ae60" : "#e74c3c"
+                };">
+                  <span style="font-size: 16px; margin-right: 5px;">${
+                    netBalance >= 0 ? "✅" : "⚠️"
+                  }</span>
+                  <span style="font-weight: bold;">${
+                    netBalance >= 0
+                      ? "Net Positive (Credit)"
+                      : "Net Negative (Debit)"
+                  }</span>
+                </div>
               </div>
             </div>
           `;
